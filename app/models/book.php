@@ -73,7 +73,7 @@ class BookModel {
     }
 
     /**
-     * ➕ CREATE BUKU + COVER
+     * CREATE BUKU + COVER
      */
     public function create($d){
         $stmt = $this->db->prepare("
@@ -92,7 +92,7 @@ class BookModel {
     }
 
     /**
-     * ✏ UPDATE BUKU + COVER
+     * UPDATE BUKU + COVER
      */
     public function update($id, $d){
         $stmt = $this->db->prepare("
@@ -141,8 +141,7 @@ class BookModel {
     }
 
     /* ===============================
-        🎉 FUNGSI TAMBAHAN COVER
-       (TIDAK MENGUBAH APAPUN YANG LAMA)
+         FUNGSI TAMBAHAN COVER
     =============================== */
 
     /**

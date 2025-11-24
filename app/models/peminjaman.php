@@ -40,7 +40,7 @@ class PeminjamanModel {
     }
 
     /**
-     * Ambil semua peminjaman (untuk halaman borrow.php)
+     * Ambil semua peminjaman
      */
     public function all(){
         $stmt = $this->db->prepare("
@@ -115,15 +115,30 @@ class PeminjamanModel {
 
     /**
      * Kembalikan buku
+     * - Cek status dulu biar stok gak nambah dua kali
      */
     public function returnBook($id, $tanggal_kembali){
 
-        // Ambil info buku yang dikembalikan
+        // Ambil info peminjaman
         $stmt = $this->db->prepare("
-            SELECT buku_id FROM peminjaman WHERE id = ?
+            SELECT buku_id, status
+            FROM peminjaman
+            WHERE id = ?
         ");
         $stmt->execute([$id]);
-        $buku_id = $stmt->fetchColumn();
+        $row = $stmt->fetch();
+
+        if (!$row) {
+            return false; // peminjaman tidak ditemukan
+        }
+
+        $buku_id     = $row['buku_id'];
+        $status_lama = $row['status'];
+
+        // Kalau sudah 'dikembalikan', jangan ubah stok lagi
+        if ($status_lama === 'dikembalikan') {
+            return false;
+        }
 
         // Update status peminjaman
         $stmt = $this->db->prepare("

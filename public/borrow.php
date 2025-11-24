@@ -18,17 +18,17 @@ $user_id_session = $_SESSION['user']['id'];
 $message      = null;
 $message_type = null;
 
-/* ============================
-   HALAMAN INI HANYA UNTUK PEMINJAM
-   ============================ */
+// ============================
+// HALAMAN INI HANYA UNTUK PEMINJAM
+// ============================
 if ($role !== 'peminjam') {
     $message      = "Halaman ini hanya untuk akun peminjam.";
     $message_type = "error";
 }
 
-/* ============================
-   PINJAM DARI INDEX
-   ============================ */
+// ============================
+// PINJAM DARI INDEX (auto select buku)
+// ============================
 $selectedBookId = null;
 if (isset($_GET['pinjam_buku'])) {
     $selectedBookId = intval($_GET['pinjam_buku']);
@@ -40,11 +40,11 @@ if (isset($_GET['pinjam_buku'])) {
     }
 }
 
-/* ============================
-   PINJAM BUKU
-   ============================ */
+// ============================
+// PINJAM BUKU
+// ============================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pinjam']) && $role === 'peminjam') {
-    $user_id        = $user_id_session;
+    $user_id        = $user_id_session; // selalu user yang login
     $buku_id        = intval($_POST['buku_id']);
     $tanggal_pinjam = $_POST['tanggal_pinjam'] ?? date('Y-m-d');
 
@@ -61,29 +61,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pinjam']) && $role ==
         $message_type = "success";
     }
 
+    // UI TETAP DI BUKU YANG BARUSAN DIPILIH (baik berhasil maupun gagal)
     $selectedBookId = $buku_id;
 }
 
-/* ============================
-   KEMBALIKAN BUKU
-   ============================ */
+// ============================
+// KEMBALIKAN BUKU
+// ============================
 if (isset($_GET['kembali']) && $role === 'peminjam') {
     $id = intval($_GET['kembali']);
+
+    // pastikan peminjaman milik user yang login
     $peminjamanRow = $pm->find($id);
 
     if ($peminjamanRow && $peminjamanRow['user_id'] == $user_id_session) {
-        $pm->returnBook($id, date('Y-m-d'));
-        $message      = "Buku berhasil dikembalikan.";
-        $message_type = "success";
+        // simpan buku_id dulu untuk UI
+        $buku_id = $peminjamanRow['buku_id'];
+
+        $berhasil = $pm->returnBook($id, date('Y-m-d'));
+        if ($berhasil) {
+            $message      = "Buku berhasil dikembalikan.";
+            $message_type = "success";
+        } else {
+            // misal sudah dikembalikan sebelumnya
+            $message      = "Peminjaman sudah pernah dikembalikan atau tidak ditemukan.";
+            $message_type = "error";
+        }
+
+        // setelah mengembalikan, dropdown diarahkan ke buku yang baru dikembalikan
+        $selectedBookId = $buku_id;
     } else {
         $message      = "Anda tidak berhak mengembalikan peminjaman ini.";
         $message_type = "error";
     }
 }
 
-/* ============================
-   TAMBAH ULASAN
-   ============================ */
+// ============================
+// TAMBAH ULASAN
+// ============================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['review']) && $role === 'peminjam') {
     $peminjaman_id = intval($_POST['peminjaman_id']);
     $buku_id       = intval($_POST['buku_id']);
@@ -106,11 +121,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['review']) && $role ==
         $message      = "Ulasan berhasil ditambahkan.";
         $message_type = "success";
     }
+
+    // UI diarahkan ke buku yang sedang di-review
+    $selectedBookId = $buku_id;
 }
 
-/* ============================
-   EDIT ULASAN
-   ============================ */
+// ============================
+// EDIT ULASAN
+// ============================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_review']) && $role === 'peminjam') {
     $review_id = intval($_POST['review_id']);
     $rating    = intval($_POST['rating']);
@@ -125,12 +143,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_review']) && $ro
         $rm->updateReview($review_id, $rating, $komentar, $user_id_session);
         $message      = "Ulasan berhasil diperbarui.";
         $message_type = "success";
+
+        // arahkan dropdown ke buku dari ulasan ini
+        $selectedBookId = $reviewRow['buku_id'];
     }
 }
 
-/* ============================
-   HAPUS ULASAN
-   ============================ */
+// ============================
+// HAPUS ULASAN
+// ============================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_review']) && $role === 'peminjam') {
     $review_id = intval($_POST['review_id']);
     $reviewRow = $rm->findByReviewId($review_id);
@@ -142,14 +163,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_review']) && $
         $rm->deleteReview($review_id, $user_id_session);
         $message      = "Ulasan berhasil dihapus.";
         $message_type = "success";
+
+        // biar tetap nempel ke buku itu juga
+        $selectedBookId = $reviewRow['buku_id'];
     }
 }
 
-/* ============================
-   LOAD DATA
-   ============================ */
+// ============================
+// LOAD DATA
+// ============================
 $books = $bm->all();
 
+// Peminjam hanya boleh melihat peminjamannya sendiri
 $stmt = $db->pdo()->prepare("
     SELECT p.*, u.username, b.judul, b.cover
     FROM peminjaman p
@@ -163,7 +188,6 @@ $peminjaman = $stmt->fetchAll();
 ?>
 
 <style>
-
 .shinigami-bg {
     background:#0d0d0f;
 }
@@ -203,189 +227,187 @@ td,th {
 
 <div class="p-6 shinigami-bg text-white min-h-screen">
 
-<h2 class="text-3xl font-bold mb-6 text-center glow">Peminjaman Saya</h2>
+  <h2 class="text-3xl font-bold mb-6 text-center glow">Peminjaman Saya</h2>
 
-<?php if ($message): ?>
-    <div class="mb-6 p-4 rounded <?= $message_type=='error' ? 'bg-red-900/50 text-red-300 border border-red-800' : 'bg-green-900/40 text-green-300 border border-green-800' ?>">
-      <?= htmlspecialchars($message) ?>
-    </div>
-<?php endif; ?>
-
-<?php if ($role === 'peminjam'): ?>
-<div class="shinigami-card p-4 mb-8">
-    <form method="post" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-      <input type="hidden" name="pinjam" value="1">
-
-      <div>
-        <label class="block text-sm mb-1 text-gray-300">Buku</label>
-        <select id="selectBuku" name="buku_id" class="w-full p-2 rounded dark-input">
-          <?php foreach ($books as $b): ?>
-            <option 
-              value="<?= $b['id'] ?>"
-              data-cover="<?= htmlspecialchars($b['cover'] ?? '') ?>"
-              data-judul="<?= htmlspecialchars($b['judul']) ?>"
-              data-penulis="<?= htmlspecialchars($b['penulis'] ?? '') ?>"
-              <?= ($selectedBookId == $b['id']) ? 'selected' : '' ?>
-            >
-              <?= htmlspecialchars($b['judul']) ?> (stok: <?= intval($b['stok']) ?>)
-            </option>
-          <?php endforeach; ?>
-        </select>
+  <?php if ($message): ?>
+      <div class="mb-6 p-4 rounded <?= $message_type=='error' ? 'bg-red-900/50 text-red-300 border border-red-800' : 'bg-green-900/40 text-green-300 border border-green-800' ?>">
+        <?= htmlspecialchars($message) ?>
       </div>
+  <?php endif; ?>
 
-      <div>
-        <label class="block text-sm mb-1 text-gray-300">Tanggal Pinjam</label>
-        <input type="date" name="tanggal_pinjam" value="<?= date('Y-m-d') ?>" class="w-full p-2 rounded dark-input">
-      </div>
+  <?php if ($role === 'peminjam'): ?>
+  <div class="shinigami-card p-4 mb-8">
+      <form method="post" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <input type="hidden" name="pinjam" value="1">
 
-      <div class="md:col-span-3 flex items-center justify-between mt-2">
-        <div class="flex items-center gap-3">
-          <div class="h-20 w-16 bg-black/40 rounded overflow-hidden border border-gray-700 flex items-center justify-center">
-            <img id="previewCover" src="" class="h-full w-full object-cover hidden">
-            <div id="previewNo" class="text-xs text-gray-500">No Image</div>
-          </div>
-          <div>
-            <div id="previewJudul" class="font-semibold text-white"></div>
-            <div id="previewPenulis" class="text-sm text-gray-400"></div>
-          </div>
+        <div>
+          <label class="block text-sm mb-1 text-gray-300">Buku</label>
+          <select id="selectBuku" name="buku_id" class="w-full p-2 rounded dark-input">
+            <?php foreach ($books as $b): ?>
+              <option 
+                value="<?= $b['id'] ?>"
+                data-cover="<?= htmlspecialchars($b['cover'] ?? '') ?>"
+                data-judul="<?= htmlspecialchars($b['judul']) ?>"
+                data-penulis="<?= htmlspecialchars($b['penulis'] ?? '') ?>"
+                <?= ($selectedBookId == $b['id']) ? 'selected' : '' ?>
+              >
+                <?= htmlspecialchars($b['judul']) ?> (stok: <?= intval($b['stok']) ?>)
+              </option>
+            <?php endforeach; ?>
+          </select>
         </div>
 
-        <button class="dark-btn px-4 py-2 rounded">Pinjam</button>
-      </div>
+        <div>
+          <label class="block text-sm mb-1 text-gray-300">Tanggal Pinjam</label>
+          <input type="date" name="tanggal_pinjam" value="<?= date('Y-m-d') ?>" class="w-full p-2 rounded dark-input">
+        </div>
 
-    </form>
-</div>
-<?php endif; ?>
+        <div class="md:col-span-3 flex items-center justify-between mt-2">
+          <div class="flex items-center gap-3">
+            <div class="h-20 w-16 bg-black/40 rounded overflow-hidden border border-gray-700 flex items-center justify-center">
+              <img id="previewCover" src="" class="h-full w-full object-cover hidden">
+              <div id="previewNo" class="text-xs text-gray-500">No Image</div>
+            </div>
+            <div>
+              <div id="previewJudul" class="font-semibold text-white"></div>
+              <div id="previewPenulis" class="text-sm text-gray-400"></div>
+            </div>
+          </div>
 
-<h3 class="text-lg font-bold mb-3 glow">Riwayat Peminjaman Saya</h3>
+          <button class="dark-btn px-4 py-2 rounded">Pinjam</button>
+        </div>
 
-<div class="overflow-x-auto shinigami-card">
-  <table class="w-full text-sm">
-    <thead class="bg-black/40 text-gray-300">
-      <tr>
-        <th class="p-3">Cover</th>
-        <th class="p-3">Buku</th>
-        <th class="p-3">Tanggal Pinjam</th>
-        <th class="p-3">Status</th>
-        <th class="p-3">Aksi</th>
-        <th class="p-3">Ulasan</th>
-      </tr>
-    </thead>
+      </form>
+  </div>
+  <?php endif; ?>
 
-    <tbody>
-      <?php foreach ($peminjaman as $p):
-            $bookRow = $bm->find($p['buku_id']);
-            $cover   = $bookRow['cover'] ?? null;
-            $review  = $rm->findByPeminjaman($p['id']);
-      ?>
-      <tr class="border-t border-gray-700">
-        
-        <td class="p-2">
-            <?php if ($cover): ?>
-              <img src="uploads/cover/<?= htmlspecialchars($cover) ?>" class="h-16 w-12 object-cover rounded shadow">
-            <?php else: ?>
-              <div class="h-16 w-12 bg-gray-600/40 rounded text-center text-xs flex items-center justify-center">
-                No
-              </div>
-            <?php endif; ?>
-        </td>
+  <h3 class="text-lg font-bold mb-3 glow">Riwayat Peminjaman Saya</h3>
 
-        <td class="p-2 font-medium text-white"><?= htmlspecialchars($p['judul']) ?></td>
-        <td class="p-2 text-gray-300"><?= htmlspecialchars($p['tanggal_pinjam']) ?></td>
-        <td class="p-2 text-gray-300"><?= htmlspecialchars($p['status']) ?></td>
+  <div class="overflow-x-auto shinigami-card">
+    <table class="w-full text-sm">
+      <thead class="bg-black/40 text-gray-300">
+        <tr>
+          <th class="p-3">Cover</th>
+          <th class="p-3">Buku</th>
+          <th class="p-3">Tanggal Pinjam</th>
+          <th class="p-3">Status</th>
+          <th class="p-3">Aksi</th>
+          <th class="p-3">Ulasan</th>
+        </tr>
+      </thead>
 
-        <td class="p-2">
-            <?php if ($p['status'] == 'dipinjam'): ?>
-              <a href="borrow.php?kembali=<?= $p['id'] ?>" class="text-purple-400 hover:underline">Kembalikan</a>
-            <?php else: ?>
-              <span class="text-green-400 font-semibold">✔ Selesai</span>
-            <?php endif; ?>
-        </td>
+      <tbody>
+        <?php foreach ($peminjaman as $p):
+              $bookRow = $bm->find($p['buku_id']);
+              $cover   = $bookRow['cover'] ?? null;
+              $review  = $rm->findByPeminjaman($p['id']);
+        ?>
+        <tr class="border-t border-gray-700">
+          
+          <td class="p-2">
+              <?php if ($cover): ?>
+                <img src="uploads/cover/<?= htmlspecialchars($cover) ?>" class="h-16 w-12 object-cover rounded shadow">
+              <?php else: ?>
+                <div class="h-16 w-12 bg-gray-600/40 rounded text-center text-xs flex items-center justify-center">
+                  No
+                </div>
+              <?php endif; ?>
+          </td>
 
-        <td class="p-2 align-top">
-            <?php if ($p['status'] == 'dikembalikan' && !$review): ?>
+          <td class="p-2 font-medium text-white"><?= htmlspecialchars($p['judul']) ?></td>
+          <td class="p-2 text-gray-300"><?= htmlspecialchars($p['tanggal_pinjam']) ?></td>
+          <td class="p-2 text-gray-300"><?= htmlspecialchars($p['status']) ?></td>
 
-              <button onclick="document.getElementById('add<?= $p['id'] ?>').classList.toggle('hidden')" 
-                class="text-purple-300 underline text-sm hover:text-purple-200">
-                Beri Ulasan
-              </button>
+          <td class="p-2">
+              <?php if ($p['status'] == 'dipinjam'): ?>
+                <a href="borrow.php?kembali=<?= $p['id'] ?>" class="text-purple-400 hover:underline">Kembalikan</a>
+              <?php else: ?>
+                <span class="text-green-400 font-semibold">✔ Selesai</span>
+              <?php endif; ?>
+          </td>
 
-              <div id="add<?= $p['id'] ?>" class="hidden mt-2">
-                <form method="post" class="p-3 bg-black/40 border border-gray-700 rounded">
-                  <input type="hidden" name="review" value="1">
-                  <input type="hidden" name="peminjaman_id" value="<?= $p['id'] ?>">
-                  <input type="hidden" name="buku_id" value="<?= $p['buku_id'] ?>">
+          <td class="p-2 align-top">
+              <?php if ($p['status'] == 'dikembalikan' && !$review): ?>
 
-                  <label class="text-sm text-gray-300">Rating</label>
-                  <select name="rating" class="w-full dark-input p-1 rounded mt-1">
-                    <?php for ($i = 1; $i <= 5; $i++): ?>
-                      <option value="<?= $i ?>">⭐ <?= $i ?></option>
-                    <?php endfor; ?>
-                  </select>
-
-                  <textarea name="komentar" class="w-full dark-input p-2 rounded mt-2" rows="3" placeholder="Tulis ulasan..."></textarea>
-
-                  <div class="mt-2 flex items-center">
-                    <button class="dark-btn px-3 py-1 rounded">Kirim</button>
-                    <button type="button" onclick="document.getElementById('add<?= $p['id'] ?>').classList.add('hidden')" class="bg-red-700 text-white px-3 py-1 rounded ml-2">Batal</button>
-                  </div>
-                </form>
-              </div>
-
-            <?php elseif ($review): ?>
-
-              <div class="text-sm mb-1 text-yellow-300">⭐ <?= $review['rating'] ?></div>
-              <div class="text-xs text-gray-300 mb-2"><?= nl2br(htmlspecialchars($review['komentar'])) ?></div>
-
-              <div class="flex items-center gap-2">
-                <button onclick="document.getElementById('edit<?= $review['id'] ?>').classList.toggle('hidden')" class="text-purple-300 underline text-sm">
-                  Edit
+                <button onclick="document.getElementById('add<?= $p['id'] ?>').classList.toggle('hidden')" 
+                  class="text-purple-300 underline text-sm hover:text-purple-200">
+                  Beri Ulasan
                 </button>
 
-                <form method="post" class="inline" onsubmit="return confirm('Hapus ulasan ini?')">
-                  <input type="hidden" name="delete_review" value="1">
-                  <input type="hidden" name="review_id" value="<?= $review['id'] ?>">
-                  <button class="text-red-400 underline text-sm">Hapus</button>
-                </form>
-              </div>
+                <div id="add<?= $p['id'] ?>" class="hidden mt-2">
+                  <form method="post" class="p-3 bg-black/40 border border-gray-700 rounded">
+                    <input type="hidden" name="review" value="1">
+                    <input type="hidden" name="peminjaman_id" value="<?= $p['id'] ?>">
+                    <input type="hidden" name="buku_id" value="<?= $p['buku_id'] ?>">
 
-              <div id="edit<?= $review['id'] ?>" class="hidden mt-2">
-                <form method="post" class="p-3 bg-black/40 border border-gray-700 rounded">
-                  <input type="hidden" name="edit_review" value="1">
-                  <input type="hidden" name="review_id" value="<?= $review['id'] ?>">
+                    <label class="text-sm text-gray-300">Rating</label>
+                    <select name="rating" class="w-full dark-input p-1 rounded mt-1">
+                      <?php for ($i = 1; $i <= 5; $i++): ?>
+                        <option value="<?= $i ?>">⭐ <?= $i ?></option>
+                      <?php endfor; ?>
+                    </select>
 
-                  <label class="text-sm text-gray-300">Rating</label>
-                  <select name="rating" class="w-full dark-input p-1 rounded mt-1">
-                    <?php for ($i = 1; $i <= 5; $i++): ?>
-                      <option value="<?= $i ?>" <?= $i == $review['rating'] ? 'selected' : '' ?>>⭐ <?= $i ?></option>
-                    <?php endfor; ?>
-                  </select>
+                    <textarea name="komentar" class="w-full dark-input p-2 rounded mt-2" rows="3" placeholder="Tulis ulasan..."></textarea>
 
-                  <textarea name="komentar" class="w-full dark-input p-2 rounded mt-2" rows="3"><?= htmlspecialchars($review['komentar']) ?></textarea>
+                    <div class="mt-2 flex items-center">
+                      <button class="dark-btn px-3 py-1 rounded">Kirim</button>
+                      <button type="button" onclick="document.getElementById('add<?= $p['id'] ?>').classList.add('hidden')" class="bg-red-700 text-white px-3 py-1 rounded ml-2">Batal</button>
+                    </div>
+                  </form>
+                </div>
 
-                  <div class="mt-2 flex items-center">
-                    <button class="dark-btn px-3 py-1 rounded">Simpan</button>
-                    <button type="button" onclick="document.getElementById('edit<?= $review['id'] ?>').classList.add('hidden')" class="bg-red-700 text-white px-3 py-1 rounded ml-2">Batal</button>
-                  </div>
-                </form>
-              </div>
+              <?php elseif ($review): ?>
 
-            <?php else: ?>
-              <span class="text-gray-500">-</span>
-            <?php endif; ?>
+                <div class="text-sm mb-1 text-yellow-300">⭐ <?= $review['rating'] ?></div>
+                <div class="text-xs text-gray-300 mb-2"><?= nl2br(htmlspecialchars($review['komentar'])) ?></div>
 
-        </td>
+                <div class="flex items-center gap-2">
+                  <button onclick="document.getElementById('edit<?= $review['id'] ?>').classList.toggle('hidden')" class="text-purple-300 underline text-sm">
+                    Edit
+                  </button>
 
-      </tr>
-      <?php endforeach; ?>
-    </tbody>
+                  <form method="post" class="inline" onsubmit="return confirm('Hapus ulasan ini?')">
+                    <input type="hidden" name="delete_review" value="1">
+                    <input type="hidden" name="review_id" value="<?= $review['id'] ?>">
+                    <button class="text-red-400 underline text-sm">Hapus</button>
+                  </form>
+                </div>
 
-  </table>
+                <div id="edit<?= $review['id'] ?>" class="hidden mt-2">
+                  <form method="post" class="p-3 bg-black/40 border border-gray-700 rounded">
+                    <input type="hidden" name="edit_review" value="1">
+                    <input type="hidden" name="review_id" value="<?= $review['id'] ?>">
+
+                    <label class="text-sm text-gray-300">Rating</label>
+                    <select name="rating" class="w-full dark-input p-1 rounded mt-1">
+                      <?php for ($i = 1; $i <= 5; $i++): ?>
+                        <option value="<?= $i ?>" <?= $i == $review['rating'] ? 'selected' : '' ?>>⭐ <?= $i ?></option>
+                      <?php endfor; ?>
+                    </select>
+
+                    <textarea name="komentar" class="w-full dark-input p-2 rounded mt-2" rows="3"><?= htmlspecialchars($review['komentar']) ?></textarea>
+
+                    <div class="mt-2 flex items-center">
+                      <button class="dark-btn px-3 py-1 rounded">Simpan</button>
+                      <button type="button" onclick="document.getElementById('edit<?= $review['id'] ?>').classList.add('hidden')" class="bg-red-700 text-white px-3 py-1 rounded ml-2">Batal</button>
+                    </div>
+                  </form>
+                </div>
+
+              <?php else: ?>
+                <span class="text-gray-500">-</span>
+              <?php endif; ?>
+
+          </td>
+
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+
+    </table>
+  </div>
+
 </div>
-
-</div>
-
-
 
 <script>
 (function(){
