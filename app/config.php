@@ -7,7 +7,7 @@ define('DB_NAME','perpus');
 define('DB_USER','root');
 define('DB_PASS',''); // isi sesuai environment
 
-// base url kalau perlu
+// base url
 define('BASE_URL', '/perpus-digital/public'); // ubah sesuai path hostmu
 
 require_once __DIR__ . '/Database.php';
