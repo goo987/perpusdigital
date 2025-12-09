@@ -1,12 +1,15 @@
 <?php
+
+// app/Models/Review.php
+
 class ReviewModel {
-    private $db;
+    private $db; // koneksi database (PDO)
 
     public function __construct($db){
         $this->db = $db;
     }
 
-    // Tambah review baru
+    // Tambah review baru saat user selesai mengembalikan buku
     public function addReview($peminjaman_id, $user_id, $buku_id, $rating, $komentar){
         $stmt = $this->db->prepare("
             INSERT INTO reviews (peminjaman_id, user_id, buku_id, rating, komentar)
@@ -15,7 +18,7 @@ class ReviewModel {
         return $stmt->execute([$peminjaman_id, $user_id, $buku_id, $rating, $komentar]);
     }
 
-    // Update review
+    // Update review (hanya milik user tersebut)
     public function updateReview($review_id, $rating, $komentar, $user_id){
         $stmt = $this->db->prepare("
             UPDATE reviews 
@@ -25,7 +28,7 @@ class ReviewModel {
         return $stmt->execute([$rating, $komentar, $review_id, $user_id]);
     }
 
-    // Hapus review
+    // Hapus review (juga hanya milik user tersebut)
     public function deleteReview($review_id, $user_id){
         $stmt = $this->db->prepare("
             DELETE FROM reviews
@@ -34,14 +37,15 @@ class ReviewModel {
         return $stmt->execute([$review_id, $user_id]);
     }
 
-    // Ambil berdasarkan peminjaman
+    // Ambil review berdasarkan ID peminjaman
+    // (untuk mengecek apakah buku sudah direview)
     public function findByPeminjaman($peminjaman_id){
         $stmt = $this->db->prepare("SELECT * FROM reviews WHERE peminjaman_id = ?");
         $stmt->execute([$peminjaman_id]);
         return $stmt->fetch();
     }
 
-    // Ambil berdasarkan review_id
+    // Ambil review berdasarkan ID review
     public function findByReviewId($review_id){
         $stmt = $this->db->prepare("SELECT * FROM reviews WHERE id = ?");
         $stmt->execute([$review_id]);
@@ -49,15 +53,15 @@ class ReviewModel {
     }
 
     /* ============================================================
-       FUNGSI TAMBAHAN UNTUK INDEX.PHP
-    =============================================================== */
+       FUNGSI TAMBAHAN UNTUK CARD DI index.php (rating & komentar)
+       ============================================================ */
 
-    // Ambil rata-rata rating & jumlah review
+    // Ambil rata-rata rating + jumlah review dari 1 buku
     public function getBookRating($buku_id){
         $stmt = $this->db->prepare("
             SELECT 
-                AVG(rating) AS avg_rating,
-                COUNT(*) AS count_review
+                AVG(rating) AS avg_rating,   -- rata-rata
+                COUNT(*) AS count_review     -- total review
             FROM reviews
             WHERE buku_id = ?
         ");
@@ -78,7 +82,7 @@ class ReviewModel {
         return $stmt->fetch();
     }
 
-    // Ambil semua ulasan untuk 1 buku
+    // Ambil semua review + username user (untuk halaman detail buku)
     public function getAllReviewsByBook($buku_id){
         $stmt = $this->db->prepare("
             SELECT r.*, u.username

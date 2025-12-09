@@ -1,18 +1,21 @@
 <?php
 require_once __DIR__.'/../templates/header.php';
 
-$auth    = new Auth($db->pdo());
-$isLogin = $auth->check();
-$user    = $isLogin ? $auth->user() : null;
 
+// CEK LOGIN & AMBIL DATA USER
+$auth    = new Auth($db->pdo());
+$isLogin = $auth->check();                 // apakah user sedang login?
+$user    = $isLogin ? $auth->user() : null; // data user jika login
+
+// LOAD MODEL BUKU & REVIEW
 $bookModel   = new BookModel($db->pdo());
 $reviewModel = new ReviewModel($db->pdo());
 
+// AMBIL SEMUA BUKU UNTUK DITAMPILKAN
 $books = $bookModel->all();
 ?>
 
 <style>
-
     body {
         background-color: #0b0b0c;
         color: #e5e5e5;
@@ -24,7 +27,9 @@ $books = $bookModel->all();
         text-shadow: 0 0 15px rgba(168, 85, 247, 0.5);
     }
 
-    /* === CARD === */
+    /*
+       CARD STYLE
+    */
     .shinigami-card {
         position: relative;
         overflow: hidden;
@@ -41,6 +46,7 @@ $books = $bookModel->all();
         border-color: rgba(168, 85, 247, 0.4);
     }
 
+    /* efek cahaya ketika hover */
     .shinigami-card::before {
         content: "";
         position: absolute;
@@ -56,7 +62,9 @@ $books = $bookModel->all();
         opacity: 1;
     }
 
-    /* STOCK BADGE */
+    /*
+       BADGE STOK BUKU
+    */
     .stock-badge {
         position: absolute;
         top: 12px;
@@ -69,6 +77,7 @@ $books = $bookModel->all();
         font-weight: 600;
     }
 
+    /* gambar cover */
     .cover-img {
         transition: transform .5s ease, filter .5s ease;
     }
@@ -80,36 +89,40 @@ $books = $bookModel->all();
 
 <div class="max-w-7xl mx-auto py-12 px-4">
 
+    <!-- Judul Halaman -->
     <h1 class="text-4xl font-extrabold mb-12 text-center text-purple-300 page-title">
         KOLEKSI BUKU
     </h1>
 
+    <!-- Jika belum ada buku -->
     <?php if (empty($books)): ?>
         <p class="text-center text-gray-400">Belum ada buku tersedia.</p>
 
     <?php else: ?>
 
+    <!-- Grid Buku -->
     <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-10">
 
         <?php foreach($books as $b): ?>
 
         <?php
-            $ratingData  = $reviewModel->getBookRating($b['id']);
-            $avgRating   = $ratingData['avg_rating'] ?? 0;
-            $reviewCount = $ratingData['count_review'] ?? 0;
+            // AMBIL DATA RATING & ULASAN BUKU
+            $ratingData   = $reviewModel->getBookRating($b['id']);
+            $avgRating    = $ratingData['avg_rating'] ?? 0;
+            $reviewCount  = $ratingData['count_review'] ?? 0;
             $latestReview = $reviewModel->getLatestReview($b['id']);
         ?>
 
         <div class="shinigami-card rounded-xl p-5 relative flex flex-col h-full shadow-lg">
 
-            <!-- STOCK BADGE -->
+            <!-- BADGE STOK -->
             <?php if (intval($b['stok']) <= 0): ?>
                 <span class="stock-badge bg-red-600 text-white">STOK HABIS</span>
             <?php else: ?>
                 <span class="stock-badge bg-green-600 text-white">STOK: <?= intval($b['stok']) ?></span>
             <?php endif; ?>
 
-            <!-- COVER -->
+            <!-- COVER BUKU -->
             <div class="w-full h-72 bg-black/40 rounded-lg overflow-hidden flex items-center justify-center shadow-inner">
                 <?php if (!empty($b['cover'])): ?>
                     <img src="uploads/cover/<?= htmlspecialchars($b['cover']) ?>"
@@ -119,7 +132,7 @@ $books = $bookModel->all();
                 <?php endif; ?>
             </div>
 
-            <!-- JUDUL -->
+            <!-- JUDUL BUKU -->
             <h2 class="text-xl font-bold mt-4 text-white line-clamp-2 tracking-wide">
                 <?= htmlspecialchars($b['judul']) ?>
             </h2>
@@ -129,16 +142,22 @@ $books = $bookModel->all();
                 Oleh: <span class="text-purple-300 font-medium"><?= htmlspecialchars($b['penulis']) ?></span>
             </p>
 
-            <!-- RATING -->
+            <!-- RATING BUKU -->
             <div class="mt-3 flex items-center gap-1 text-yellow-400">
                 <?php
+                /*
+                TAMPILKAN 5 BINTANG:
+                 - Penuh (avg >= i)
+                 - Setengah (avg >= i - 0.5)
+                 - Kosong (lainnya)
+                */
                 for ($i = 1; $i <= 5; $i++):
                     if ($avgRating >= $i) {
-                        echo '<span class="text-yellow-400 text-lg">★</span>';
+                        echo '<span class="text-yellow-400 text-lg">★</span>'; // full
                     } elseif ($avgRating >= $i - 0.5) {
-                        echo '<span class="text-yellow-300 text-lg">☆</span>';
+                        echo '<span class="text-yellow-300 text-lg">☆</span>'; // half
                     } else {
-                        echo '<span class="text-gray-700 text-lg">★</span>';
+                        echo '<span class="text-gray-700 text-lg">★</span>'; // empty
                     }
                 endfor;
                 ?>
@@ -152,7 +171,7 @@ $books = $bookModel->all();
                 <?php endif; ?>
             </div>
 
-            <!-- KOMENTAR TERBARU (HANYA USER LOGIN) -->
+            <!-- ULASAN TERBARU (HANYA USER LOGIN) -->
             <?php if ($isLogin && $latestReview): ?>
                 <div class="text-xs text-gray-300 mt-3 italic line-clamp-2">
                     "<?= htmlspecialchars(substr($latestReview['komentar'], 0, 70)) ?>..."
@@ -164,10 +183,12 @@ $books = $bookModel->all();
                 </a>
             <?php endif; ?>
 
-            <!-- BUTTON -->
+            <!-- BUTTON AKSI -->
             <div class="mt-auto pt-6">
+
                 <?php if (!$isLogin): ?>
 
+                    <!-- Jika belum login -->
                     <a href="login.php"
                        class="block text-center bg-purple-700 hover:bg-purple-800 text-white py-2 rounded-lg
                               font-semibold shadow-md transition-all duration-300 hover:-translate-y-1">
@@ -176,17 +197,20 @@ $books = $bookModel->all();
 
                 <?php elseif ($user['role'] !== 'peminjam'): ?>
 
+                    <!-- Admin & Petugas tidak bisa pinjam -->
                     <div class="text-center bg-gray-500 text-white py-2 rounded-lg cursor-not-allowed font-medium">
                         Admin/Petugas tidak bisa meminjam
                     </div>
 
                 <?php else: ?>
 
+                    <!-- Jika stok habis -->
                     <?php if (intval($b['stok']) <= 0): ?>
                         <div class="text-center bg-gray-700 text-gray-400 py-2 rounded-lg cursor-not-allowed font-medium">
                             Tidak Tersedia
                         </div>
 
+                    <!-- Jika bisa dipinjam -->
                     <?php else: ?>
                         <a href="borrow.php?pinjam_buku=<?= $b['id'] ?>"
                            class="block text-center bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg 
@@ -196,6 +220,7 @@ $books = $bookModel->all();
                     <?php endif; ?>
 
                 <?php endif; ?>
+
             </div>
 
         </div>

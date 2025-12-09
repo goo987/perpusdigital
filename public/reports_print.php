@@ -1,10 +1,22 @@
 <?php
 require_once __DIR__ . '/../app/config.php';
 
+/*
+PARAMETER GET
+ type = jenis laporan (peminjaman / buku)
+ from, to = filter tanggal
+*/
 $type = $_GET['type'] ?? '';
 $from = $_GET['from'] ?? '';
 $to   = $_GET['to'] ?? '';
 
+/*
+KONVERSI TANGGAL
+contoh:
+ Jika user memilih tanggal "from" → jadikan jam 00:00:00
+ Jika pilih tanggal "to"          → jadikan jam 23:59:59
+ Tujuannya biar filter lebih akurat.
+*/
 $from_dt = $from ? $from . " 00:00:00" : null;
 $to_dt   = $to   ? $to   . " 23:59:59" : null;
 
@@ -15,6 +27,8 @@ $pdo = $db->pdo();
 <html>
 <head>
     <title>Cetak Laporan</title>
+
+    <!-- Styling basic -->
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
         h2 { margin-bottom: 10px; }
@@ -27,11 +41,14 @@ $pdo = $db->pdo();
 <body>
 
 <script>
-// Ketika halaman selesai load → buka dialog print
+/*
+ AUTO PRINT DAN AUTO CLOSE
+ Setelah halaman selesai dimuat → otomatis buka print.
+ Setelah print selesai atau dibatalkan → tab akan tertutup otomatis.
+*/
 window.onload = function () {
     window.print();
 
-    // Setelah print (OK/CANCEL) → tutup tab
     setTimeout(function () {
         window.close();
     }, 300);
@@ -40,9 +57,20 @@ window.onload = function () {
 
 <?php if ($type === 'peminjaman'): ?>
 
+    <!-- LAPORAN PEMINJAMAN -->
     <h2>Laporan Peminjaman</h2>
 
     <?php
+    /*
+     QUERY DATA PEMINJAMAN
+     Filter tanggal opsional (pakai created_at)
+     yg ditampilkan:
+     - ID
+     - username
+     - judul buku
+     - tanggal pinjam
+     - status
+    */
     $sql = "
         SELECT p.*, u.username, b.judul
         FROM peminjaman p
@@ -52,8 +80,14 @@ window.onload = function () {
     ";
     $params = [];
 
-    if ($from_dt) { $sql .= " AND p.created_at >= ?"; $params[] = $from_dt; }
-    if ($to_dt)   { $sql .= " AND p.created_at <= ?"; $params[] = $to_dt; }
+    if ($from_dt) { 
+        $sql .= " AND p.created_at >= ?"; 
+        $params[] = $from_dt; 
+    }
+    if ($to_dt) { 
+        $sql .= " AND p.created_at <= ?"; 
+        $params[] = $to_dt; 
+    }
 
     $sql .= " ORDER BY p.id DESC";
 
@@ -72,6 +106,7 @@ window.onload = function () {
             <th>Status</th>
         </tr>
         </thead>
+
         <tbody>
         <?php foreach ($data as $d): ?>
             <tr>
@@ -87,14 +122,32 @@ window.onload = function () {
 
 <?php elseif ($type === 'buku'): ?>
 
+    <!-- LAPORAN BUKU -->
     <h2>Laporan Buku</h2>
 
     <?php
+    /*
+     QUERY DATA BUKU
+     Filter berdasarkan created_at kalo dipilih.
+     yg ditampilkan:
+     - ID
+     - Judul
+     - Penulis
+     - Penerbit
+     - Tahun terbit
+     - Stok
+    */
     $sql = "SELECT * FROM buku WHERE 1";
     $params = [];
 
-    if ($from_dt) { $sql .= " AND created_at >= ?"; $params[] = $from_dt; }
-    if ($to_dt)   { $sql .= " AND created_at <= ?"; $params[] = $to_dt; }
+    if ($from_dt) { 
+        $sql .= " AND created_at >= ?"; 
+        $params[] = $from_dt; 
+    }
+    if ($to_dt) { 
+        $sql .= " AND created_at <= ?"; 
+        $params[] = $to_dt; 
+    }
 
     $sql .= " ORDER BY id DESC";
 
@@ -114,6 +167,7 @@ window.onload = function () {
             <th>Stok</th>
         </tr>
         </thead>
+
         <tbody>
         <?php foreach ($data as $b): ?>
             <tr>

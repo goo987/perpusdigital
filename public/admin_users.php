@@ -1,12 +1,17 @@
 <?php
 require_once __DIR__ . '/../templates/header.php';
+// Memuat header + koneksi + auth
 
 $auth = new Auth($db->pdo());
+// Instansiasi class Auth
+
 $auth->requireRole(['administrator']);
+// Membatasi hanya Administrator yang bisa akses
 
 $userModel = new UserModel($db->pdo());
+// Model untuk melakukan query tabel users
 
-// Hapus user
+// HAPUS USER
 if (isset($_GET['delete'])) {
     $uid = intval($_GET['delete']);
     $userModel->delete($uid);
@@ -14,7 +19,7 @@ if (isset($_GET['delete'])) {
     exit;
 }
 
-// Ambil daftar admin & petugas
+// AMBIL DAFTAR ADMIN & PETUGAS
 $users = $db->pdo()->query("
     SELECT * FROM users 
     WHERE role IN ('administrator','petugas')
@@ -24,8 +29,7 @@ $users = $db->pdo()->query("
 ?>
 
 <style>
-
-/* Container Card */
+/* CARD */
 .shini-card {
     background: linear-gradient(160deg, #0c0c0d, #121215 60%, #0c0c0d);
     border: 1px solid rgba(168,85,247,0.25);
@@ -41,7 +45,7 @@ $users = $db->pdo()->query("
     transform: translateY(-3px);
 }
 
-/* Title */
+/* TITLE */
 .shini-title {
     font-size: 1.9rem;
     font-weight: 800;
@@ -49,7 +53,7 @@ $users = $db->pdo()->query("
     text-shadow: 0 0 18px rgba(168,85,247,.55);
 }
 
-/* Add Button */
+/* BUTTON TAMBAH */
 .shini-btn-add {
     background: #7e22ce;
     padding: 10px 22px;
@@ -64,7 +68,7 @@ $users = $db->pdo()->query("
     transform: translateY(-2px);
 }
 
-/* Table Style */
+/* TABLE */
 table.shini-table {
     width: 100%;
     border-collapse: collapse;
@@ -95,13 +99,12 @@ table.shini-table {
     box-shadow: inset 0 0 12px rgba(168,85,247,0.25);
 }
 
-/* Table Cells */
 .shini-table td {
     padding: 10px;
     color: #dedede;
 }
 
-/* Action Buttons */
+/* ACTION BUTTONS */
 .shini-edit {
     color: #8d5bff;
     font-weight: 600;
@@ -130,12 +133,15 @@ table.shini-table {
 
 <div class="shini-card">
 
+    <!-- TITLE + BUTTON TAMBAH -->
     <div class="flex justify-between items-center mb-4">
         <h2 class="shini-title">Manajemen Admin & Petugas</h2>
 
+        <!-- BUTTON TAMBAH ADMIN/PETUGAS -->
         <a href="admin_register.php" class="shini-btn-add">+ Tambah Akun</a>
     </div>
 
+    <!-- TABLE LIST ADMIN/PETUGAS -->
     <table class="shini-table">
         <thead>
             <tr>
@@ -151,23 +157,30 @@ table.shini-table {
         <tbody>
         <?php foreach ($users as $u): ?>
             <tr>
+
+                <!-- USERNAME -->
                 <td><?= htmlspecialchars($u['username']) ?></td>
 
+                <!-- NAMA -->
                 <td><?= htmlspecialchars($u['nama_lengkap']) ?></td>
 
+                <!-- ROLE -->
                 <td class="font-bold italic text-purple-300">
                     <?= htmlspecialchars($u['role']) ?>
                 </td>
 
+                <!-- EMAIL -->
                 <td><?= htmlspecialchars($u['email']) ?></td>
 
+                <!-- ALAMAT -->
                 <td><?= nl2br(htmlspecialchars($u['alamat'])) ?></td>
 
+                <!-- ACTION -->
                 <td>
-                    <!-- EDIT -->
+                    <!-- BUTTON EDIT -->
                     <a href="admin_edit.php?id=<?= $u['id'] ?>" class="shini-edit">Edit</a>
 
-                    <!-- DELETE -->
+                    <!-- BUTTON DELETE (gabisa hapus diri sendiri) -->
                     <?php if ($u['id'] != $_SESSION['user']['id']): ?>
                         &nbsp;|&nbsp;
                         <a href="admin_users.php?delete=<?= $u['id'] ?>" 
@@ -177,6 +190,7 @@ table.shini-table {
                         <span class="shini-self">(Akun Anda)</span>
                     <?php endif; ?>
                 </td>
+
             </tr>
         <?php endforeach; ?>
         </tbody>

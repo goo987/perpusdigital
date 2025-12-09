@@ -2,23 +2,23 @@
 // app/Models/Book.php
 
 class BookModel {
-    private $db;
+    private $db; // koneksi database (PDO)
 
     public function __construct($db){
         $this->db = $db;
     }
 
-    /**
-     * Ambil semua data buku tanpa filter
-     */
+    /* ===============================
+       AMBIL SEMUA BUKU TANPA FILTER
+    =============================== */
     public function all(){
         $stmt = $this->db->query("SELECT * FROM buku ORDER BY id DESC");
         return $stmt->fetchAll();
     }
 
-    /**
-     * Ambil data buku + filter tanggal (untuk laporan lama)
-     */
+    /* ===============================
+       GET SEMUA BUKU + FILTER TANGGAL
+    =============================== */
     public function getAll($from = null, $to = null){
         $sql = "SELECT * FROM buku WHERE 1";
         $params = [];
@@ -41,9 +41,9 @@ class BookModel {
         return $stmt->fetchAll();
     }
 
-    /**
-     * 🔥 Laporan buku
-     */
+    /* ===============================
+       LAPORAN BUKU
+    =============================== */
     public function reportAll($from = null, $to = null){
         $sql = "SELECT * FROM buku WHERE 1";
         $params = [];
@@ -66,15 +66,18 @@ class BookModel {
         return $stmt->fetchAll();
     }
 
+    /* ===============================
+       FIND BUKU BY ID
+    =============================== */
     public function find($id){
         $stmt = $this->db->prepare("SELECT * FROM buku WHERE id = ?");
         $stmt->execute([$id]);
         return $stmt->fetch();
     }
 
-    /**
-     * CREATE BUKU + COVER
-     */
+    /* ===============================
+       CREATE BUKU + COVER
+    =============================== */
     public function create($d){
         $stmt = $this->db->prepare("
             INSERT INTO buku (judul, penulis, penerbit, tahun_terbit, stok, cover)
@@ -87,13 +90,13 @@ class BookModel {
             $d['penerbit'],
             $d['tahun_terbit'],
             $d['stok'],
-            $d['cover'] ?? null  // cover bisa kosong
+            $d['cover'] ?? null  // cover optional
         ]);
     }
 
-    /**
-     * UPDATE BUKU + COVER
-     */
+    /* ===============================
+       UPDATE BUKU + COVER
+    =============================== */
     public function update($id, $d){
         $stmt = $this->db->prepare("
             UPDATE buku 
@@ -112,14 +115,17 @@ class BookModel {
         ]);
     }
 
+    /* ===============================
+       DELETE BUKU
+    =============================== */
     public function delete($id){
         $stmt = $this->db->prepare("DELETE FROM buku WHERE id = ?");
         return $stmt->execute([$id]);
     }
 
-    /**
-     * Hitung jumlah buku
-     */
+    /* ===============================
+       HITUNG TOTAL BUKU
+    =============================== */
     public function countBooks($from = null, $to = null){
         $sql = "SELECT COUNT(*) FROM buku WHERE 1";
         $params = [];
@@ -141,12 +147,10 @@ class BookModel {
     }
 
     /* ===============================
-         FUNGSI TAMBAHAN COVER
+        FUNGSI TAMBAHAN COVER
     =============================== */
 
-    /**
-     * Update hanya cover saja
-     */
+    /* UPDATE COVER SAJA */
     public function updateCover($id, $cover){
         $stmt = $this->db->prepare("
             UPDATE buku SET cover = ? WHERE id = ?
@@ -154,9 +158,7 @@ class BookModel {
         return $stmt->execute([$cover, $id]);
     }
 
-    /**
-     * Hapus cover (set NULL)
-     */
+    /* HAPUS COVER (SET NULL) */
     public function deleteCover($id){
         $stmt = $this->db->prepare("
             UPDATE buku SET cover = NULL WHERE id = ?

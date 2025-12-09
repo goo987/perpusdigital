@@ -3,9 +3,11 @@ require_once __DIR__.'/../templates/header.php';
 
 $auth = new Auth($db->pdo());
 $auth->requireRole(['administrator','petugas']);
+// Hanya admin dan petugas yang bisa membuka laporan
 
 $peminjamanModel = new PeminjamanModel($db->pdo());
 $bookModel       = new BookModel($db->pdo());
+
 
 $from = $_GET['from'] ?? '';
 $to   = $_GET['to'] ?? '';
@@ -18,8 +20,6 @@ $book_list   = $bookModel->reportAll($from_dt, $to_dt);
 ?>
 
 <style>
-
-/* --- CARD BESAR --- */
 .shini-card {
     background: linear-gradient(160deg, #0c0c0d, #121215 60%, #0c0c0d);
     border: 1px solid rgba(168,85,247,0.20);
@@ -31,10 +31,9 @@ $book_list   = $bookModel->reportAll($from_dt, $to_dt);
 .shini-card:hover {
     border-color: rgba(168,85,247,0.35);
     box-shadow: 0 0 24px rgba(168,85,247,0.30);
-    transform: translateY(-1.5px); /* lebih kecil */
+    transform: translateY(-1.5px);
 }
 
-/* --- TITLE --- */
 .shini-title {
     font-size: 1.9rem;
     font-weight: 800;
@@ -42,7 +41,6 @@ $book_list   = $bookModel->reportAll($from_dt, $to_dt);
     text-shadow: 0 0 12px rgba(168,85,247,.45);
 }
 
-/* --- INPUT FILTER --- */
 .shini-input {
     background: #141417;
     border: 1px solid rgba(168,85,247,0.28);
@@ -57,7 +55,6 @@ $book_list   = $bookModel->reportAll($from_dt, $to_dt);
     outline: none;
 }
 
-/* --- TABLE UTAMA --- */
 table.shini-table {
     width: 100%;
     border-collapse: collapse;
@@ -65,34 +62,28 @@ table.shini-table {
     font-size: 0.95rem;
     color: #dfd9ff;
 }
-
 .shini-table thead tr {
     background: #1e1e24;
     border-bottom: 1px solid rgba(168,85,247,0.25);
 }
-
 .shini-table th {
     padding: 10px;
     color: #c7b3ff;
     font-weight: 700;
 }
-
 .shini-table tbody tr {
     background: #141417;
     border-bottom: 1px solid rgba(255,255,255,0.05);
     transition: .2s;
 }
-
 .shini-table tbody tr:hover {
     background: #1c1c21;
-    box-shadow: inset 0 0 8px rgba(168,85,247,0.18); /* lebih kecil */
+    box-shadow: inset 0 0 8px rgba(168,85,247,0.18);
 }
-
 .shini-table td {
     padding: 10px;
 }
 
-/* --- BUTTON UTAMA --- */
 .shini-btn {
     background: #7e22ce;
     padding: 9px 18px;
@@ -106,7 +97,6 @@ table.shini-table {
     box-shadow: 0 0 12px rgba(168,85,247,.35);
 }
 
-/* --- BUTTON CETAK --- */
 .shini-btn-green {
     background: #0f8d2f;
     padding: 8px 14px;
@@ -120,12 +110,11 @@ table.shini-table {
     box-shadow: 0 0 10px rgba(0,255,120,0.25);
 }
 
-/* --- RESET LINK --- */
 .shini-reset {
     color: #b8a8d9;
     font-weight: 600;
     margin-left: 6px;
-    margin-top: 9px !important; /* sejajar dengan tombol Filter */
+    margin-top: 9px !important;
     display: inline-block;
     transition: .25s;
 }
@@ -133,7 +122,6 @@ table.shini-table {
     color: #e5d2ff;
     text-shadow: 0 0 6px rgba(168,85,247,.35);
 }
-
 </style>
 
 
@@ -141,7 +129,9 @@ table.shini-table {
 
     <h2 class="shini-title mb-6">Laporan Perpustakaan</h2>
 
-    <!-- FILTER TANGGAL -->
+    <!-- ============================= -->
+    <!--      FILTER TANGGAL           -->
+    <!-- ============================= -->
     <form method="get" class="mb-6 flex items-end gap-5">
 
         <div class="w-44">
@@ -154,16 +144,16 @@ table.shini-table {
             <input type="date" name="to" value="<?= htmlspecialchars($to) ?>" class="shini-input mt-1">
         </div>
 
-        <button class="shini-btn mt-6">Filter</button>
+        <!-- ============ EDITED BAGIAN INI SAJA ============ -->
+        <div class="flex items-center gap-3 mb-[2px]">
+            <button class="shini-btn">Filter</button>
+            <a href="reports.php" class="shini-reset !mt-0">Reset</a>
+        </div>
+        <!-- ================================================= -->
 
-        <a href="reports.php" class="shini-reset">Reset</a>
     </form>
 
-
-
-    <!-- ============================= -->
-    <!--       LAPORAN PEMINJAMAN      -->
-    <!-- ============================= -->
+    <!-- LAPORAN PEMINJAMAN -->
     <div class="mt-8 shini-card">
 
         <div class="flex justify-between items-center mb-3">
@@ -202,15 +192,12 @@ table.shini-table {
                         <td><?= $r['status'] ?></td>
                     </tr>
                 <?php endforeach; ?>
+
             </tbody>
         </table>
     </div>
 
-
-
-    <!-- ============================= -->
-    <!--       LAPORAN DETAIL BUKU     -->
-    <!-- ============================= -->
+    <!-- LAPORAN DETAIL BUKU -->
     <div class="mt-10 shini-card">
 
         <div class="flex justify-between items-center mb-3">
@@ -235,6 +222,7 @@ table.shini-table {
             </thead>
 
             <tbody>
+
                 <?php if (empty($book_list)): ?>
                     <tr><td colspan="6" class="text-center p-4 text-gray-400">Tidak ada data</td></tr>
                 <?php endif; ?>
@@ -249,6 +237,7 @@ table.shini-table {
                         <td><?= $b['stok'] ?></td>
                     </tr>
                 <?php endforeach; ?>
+
             </tbody>
         </table>
 

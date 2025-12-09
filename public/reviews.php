@@ -1,16 +1,25 @@
 <?php
 require_once __DIR__ . '/../templates/header.php';
 
+
+// CEK LOGIN DAN LOAD MODEL
 $auth = new Auth($db->pdo());
 $isLogin = $auth->check();
 
 $bookModel   = new BookModel($db->pdo());
 $reviewModel = new ReviewModel($db->pdo());
 
-// Ambil ID buku
+/*
+ AMBIL ID BUKU DARI URL
+ Contoh: reviews.php?book_id=5
+*/
 $book_id = isset($_GET['book_id']) ? intval($_GET['book_id']) : 0;
-$book    = $bookModel->find($book_id);
 
+
+// AMBIL DATA BUKU DARI DATABASE
+$book = $bookModel->find($book_id);
+
+// Jika buku tidak ditemukan maka tampilkan pesan 
 if (!$book) {
     echo "<div class='max-w-3xl mx-auto py-10 text-center text-red-400'>
             Buku tidak ditemukan.
@@ -19,16 +28,17 @@ if (!$book) {
     exit;
 }
 
-// Ambil semua ulasan buku
+// AMBIL SEMUA ULASAN UNTUK BUKU INI
 $reviews = $reviewModel->getAllReviewsByBook($book_id);
 
-// Ambil rating rata-rata
+// AMBIL RATING RATA-RATA DAN JUMLAH ULASAN
 $ratingData  = $reviewModel->getBookRating($book_id);
 $avgRating   = $ratingData['avg_rating'] ?? 0;
 $reviewCount = $ratingData['count_review'] ?? 0;
 ?>
 
 <style>
+
     .card-shinigami {
         background: linear-gradient(160deg, #0c0c0d, #111113 55%, #0c0c0d);
         border: 1px solid rgba(168,85,247,0.18);
@@ -82,13 +92,15 @@ $reviewCount = $ratingData['count_review'] ?? 0;
 
 <div class="max-w-3xl mx-auto py-10">
 
+    <!-- LINK KEMBALI -->
     <a href="index.php" class="back-link">&larr; Kembali ke daftar buku</a>
 
     <div class="card-shinigami mt-5">
 
-        <!-- HEADER BUKU -->
+        <!-- HEADER INFO BUKU -->
         <div class="flex gap-5">
 
+            <!-- COVER BUKU -->
             <div class="h-40 w-32 rounded overflow-hidden bg-gray-700 flex items-center justify-center">
                 <?php if (!empty($book['cover'])): ?>
                     <img src="uploads/cover/<?= htmlspecialchars($book['cover']) ?>" 
@@ -98,16 +110,20 @@ $reviewCount = $ratingData['count_review'] ?? 0;
                 <?php endif; ?>
             </div>
 
+            <!-- DETAIL BUKU -->
             <div>
-                <h1 class="title-shinigami"><?= htmlspecialchars($book['judul']) ?></h1>
+                <h1 class="title-shinigami">
+                    <?= htmlspecialchars($book['judul']) ?>
+                </h1>
 
                 <p class="text-muted text-sm mb-2">
                     Oleh: <?= htmlspecialchars($book['penulis']) ?>
                 </p>
 
-                <!-- RATING -->
+                <!-- RATING RATA-RATA -->
                 <div class="flex items-center gap-1">
                     <?php
+                    // Render bintang sesuai rating rata-rata
                     for ($i = 1; $i <= 5; $i++):
                         if ($avgRating >= $i) {
                             echo '<span class="text-yellow-400 text-xl">★</span>';
@@ -127,7 +143,6 @@ $reviewCount = $ratingData['count_review'] ?? 0;
                         <span class="text-xs text-gray-400">• <?= $reviewCount ?> ulasan</span>
                     <?php endif; ?>
                 </div>
-
             </div>
         </div>
 
@@ -136,6 +151,7 @@ $reviewCount = $ratingData['count_review'] ?? 0;
             Ulasan Pembaca
         </h2>
 
+        <!-- Jika belum ada ulasan -->
         <?php if (empty($reviews)): ?>
 
             <p class="text-gray-400 italic">Belum ada ulasan untuk buku ini.</p>
@@ -147,6 +163,7 @@ $reviewCount = $ratingData['count_review'] ?? 0;
                 <?php foreach ($reviews as $r): ?>
                     <div class="review-box">
 
+                        <!-- USERNAME + RATING -->
                         <div class="flex items-center justify-between">
 
                             <div class="font-bold text-purple-200">
@@ -155,6 +172,7 @@ $reviewCount = $ratingData['count_review'] ?? 0;
 
                             <div class="flex items-center">
                                 <?php
+                                // Render rating setiap user
                                 for ($i = 1; $i <= 5; $i++):
                                     if ($r['rating'] >= $i) {
                                         echo '<span class="text-yellow-400 text-lg">★</span>';
@@ -163,16 +181,19 @@ $reviewCount = $ratingData['count_review'] ?? 0;
                                     }
                                 endfor;
                                 ?>
-                                <span class="text-sm ml-1 text-gray-300">(<?= $r['rating'] ?>/5)</span>
+                                <span class="text-sm ml-1 text-gray-300">
+                                    (<?= $r['rating'] ?>/5)
+                                </span>
                             </div>
 
                         </div>
 
-                        <!-- KOMENTAR -->
+                        <!-- KOMENTAR ULASAN -->
                         <p class="text-gray-300 mt-2">
                             <?= nl2br(htmlspecialchars($r['komentar'])) ?>
                         </p>
 
+                        <!-- TANGGAL DIBUAT -->
                         <p class="text-xs text-gray-500 mt-1">
                             Ditulis pada: <?= $r['created_at'] ?>
                         </p>

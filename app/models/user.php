@@ -1,15 +1,17 @@
 <?php
 // app/Models/User.php
+
 class UserModel {
-    private $db;
+    private $db; // koneksi database (PDO)
 
     public function __construct($db){
-        $this->db = $db;
+        $this->db = $db; // simpan PDO ke variabel
     }
 
-    /* ---------------------------
-       GET ALL ADMIN + PETUGAS
-    --------------------------- */
+    /*
+       GET ALL USER
+       Untuk halaman admin: daftar user
+    */
     public function all(){
         return $this->db->query("
             SELECT * FROM users 
@@ -17,35 +19,38 @@ class UserModel {
         ")->fetchAll();
     }
 
-    /* ---------------------------
+    /*
        FIND USER BY ID
-    --------------------------- */
+       Ambil 1 baris user berdasarkan ID
+    */
     public function find($id){
         $stmt = $this->db->prepare("SELECT * FROM users WHERE id = ?");
         $stmt->execute([$id]);
         return $stmt->fetch();
     }
 
-    /* ---------------------------
+    /*
        FIND USER BY USERNAME
-    --------------------------- */
+       Digunakan untuk login
+    */
     public function findByUsername($username){
         $stmt = $this->db->prepare("SELECT * FROM users WHERE username = ?");
         $stmt->execute([$username]);
         return $stmt->fetch();
     }
 
-    /* ---------------------------
+    /*
        FIND USER BY ID (alias)
-       — boleh dipakai jika butuh keduanya
-    --------------------------- */
+       Alias untuk find()
+    */
     public function findById($id){
         return $this->find($id);
     }
 
-    /* ---------------------------
+    /*
        CREATE USER
-    --------------------------- */
+       Tambah akun baru
+    */
     public function create($data){
         $stmt = $this->db->prepare("
             INSERT INTO users 
@@ -63,9 +68,10 @@ class UserModel {
         ]);
     }
 
-    /* ---------------------------
-       UPDATE USER
-    --------------------------- */
+    /*
+       UPDATE USER TANPA PASSWORD
+       (jika admin hanya ganti nama, role, email dll)
+    */
     public function update($id, $data){
         $stmt = $this->db->prepare("
             UPDATE users SET
@@ -87,10 +93,10 @@ class UserModel {
         ]);
     }
 
-    /* ---------------------------
-       UPDATE WITH PASSWORD
-       (jika admin mau ganti password)
-    --------------------------- */
+    /*
+       UPDATE USER + PASSWORD
+       (jika password ikut diganti)
+    */
     public function updateWithPassword($id, $data){
         $stmt = $this->db->prepare("
             UPDATE users SET
@@ -109,22 +115,25 @@ class UserModel {
             $data['email'],
             $data['role'],
             $data['alamat'],
-            $data['password'],
+            $data['password'], // password baru
             $id
         ]);
     }
 
-    /* ---------------------------
+    /*
        DELETE USER
-    --------------------------- */
+       Hapus akun dari database
+    */
     public function delete($id){
         $stmt = $this->db->prepare("DELETE FROM users WHERE id = ?");
         return $stmt->execute([$id]);
     }
 
-    /* ---------------------------
+    /*
        COUNT REGISTRATIONS
-    --------------------------- */
+       Hitung jumlah peminjam (role = peminjam)
+       Untuk laporan pendaftaran
+    */
     public function countRegistrations($from = null, $to = null){
         $sql = "SELECT COUNT(*) FROM users WHERE role='peminjam'";
         $params = [];
@@ -141,6 +150,6 @@ class UserModel {
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
-        return $stmt->fetchColumn();
+        return $stmt->fetchColumn(); // hanya angka
     }
 }

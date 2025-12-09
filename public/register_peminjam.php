@@ -3,6 +3,15 @@ require_once __DIR__.'/../templates/header.php';
 
 $userModel = new UserModel($db->pdo());
 
+/*
+ PROSES FORM REGISTRASI
+ Jika request POST, maka:
+ 1. Ambil inputan user
+ 2. Hash password
+ 3. Cek apakah username sudah terpakai
+ 4. Kalau belum maka buat user baru dengan role 'peminjam'
+ 5. Tampilkan pesan sukses
+*/
 if($_SERVER['REQUEST_METHOD'] === 'POST'){
     $username = trim($_POST['username']);
     $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
@@ -10,9 +19,13 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
     $email    = $_POST['email'];
     $alamat   = $_POST['alamat'];
 
+    // Cek apakah username sudah ada di database
     if($userModel->findByUsername($username)){
         $err = "Username sudah dipakai";
+
     } else {
+
+        // Menyimpan user baru dengan role peminjam
         $userModel->create([
             'username'      => $username,
             'password'      => $password,
@@ -28,7 +41,9 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
 ?>
 
 <style>
-    
+    /*
+       CARD REGISTER (UI)
+    */
     .login-card {
         background: linear-gradient(160deg, #0c0c0d, #111113 60%, #0c0c0d);
         border: 1px solid rgba(255,255,255,0.08);
@@ -37,7 +52,6 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
         box-shadow: 0 0 25px rgba(168,85,247,0.12);
         transition: .35s ease;
     }
-
     .login-card:hover {
         transform: translateY(-4px);
         box-shadow: 0 0 28px rgba(168,85,247,0.25);
@@ -49,24 +63,28 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
         letter-spacing: 1.5px;
     }
 
+    /*
+       INPUT & TEXTAREA STYLE
+    */
     input, textarea {
         background: #1a1a1c;
         border: 1px solid rgba(255,255,255,0.12);
         color: #e5e5e5;
         transition: .3s;
     }
-
     input:focus, textarea:focus {
         border-color: #a855f7;
         box-shadow: 0 0 10px rgba(168,85,247,0.4);
         outline: none;
     }
 
+    /*
+       BUTTON REGISTER
+    */
     .btn-login {
         background: #7e22ce;
         transition: .3s ease;
     }
-
     .btn-login:hover {
         background: #6b13c0;
         transform: translateY(-2px);
@@ -77,24 +95,26 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
 <div class="max-w-md mx-auto mt-24">
     <div class="login-card">
 
+        <!-- JUDUL -->
         <h2 class="text-3xl font-extrabold text-center text-purple-300 mb-8 login-title">
             REGISTER PEMINJAM
         </h2>
 
-        <!-- ERROR -->
+        <!-- PESAN ERROR -->
         <?php if(!empty($err)): ?>
             <div class="text-red-500 mb-4 text-center text-sm">
                 <?= htmlspecialchars($err) ?>
             </div>
         <?php endif; ?>
 
-        <!-- SUKSES -->
+        <!-- PESAN SUKSES -->
         <?php if(!empty($sukses)): ?>
             <div class="text-green-400 mb-4 text-center text-sm">
                 <?= htmlspecialchars($sukses) ?>
             </div>
         <?php endif; ?>
 
+        <!-- FORM REGISTER -->
         <form method="post" class="space-y-5">
 
             <div>
@@ -127,6 +147,7 @@ if($_SERVER['REQUEST_METHOD'] === 'POST'){
             </button>
         </form>
 
+        <!-- LINK LOGIN -->
         <div class="text-center text-gray-400 mt-6 text-sm">
             Sudah punya akun?
             <a href="login.php" class="text-purple-400 hover:text-purple-300 underline">
