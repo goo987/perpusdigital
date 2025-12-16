@@ -19,9 +19,16 @@ $rm = new ReviewModel($db->pdo());
 $role            = $_SESSION['user']['role'];
 $user_id_session = $_SESSION['user']['id'];
 
-// pesan notifikasi
+// FLASH MESSAGE: ambil dari session (jika ada)
+// menggunakan flash memastikan pesan yang muncul selalu relevan setelah aksi,
+// dan tidak "mengambang" antar request.
 $message      = null;
 $message_type = null;
+if (isset($_SESSION['flash_message'])) {
+    $message = $_SESSION['flash_message'];
+    $message_type = $_SESSION['flash_type'] ?? null;
+    unset($_SESSION['flash_message'], $_SESSION['flash_type']);
+}
 
 // BUKA HALAMAN INI HANYA UNTUK PEMINJAM
 if ($role !== 'peminjam') {
@@ -60,21 +67,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pinjam']) && $role ==
 
     // cek hasilnya
     if ($result === "STOK_HABIS") {
-        $message      = "Stok buku sudah habis. Tidak bisa dipinjam.";
-        $message_type = "error";
+        $_SESSION['flash_message'] = "Stok buku sudah habis. Tidak bisa dipinjam.";
+        $_SESSION['flash_type'] = "error";
 
     } elseif ($result === "SUDAH_DIPINJAM") {
-        $message      = "Anda masih meminjam buku ini. Kembalikan dulu sebelum pinjam lagi.";
-        $message_type = "error";
+        $_SESSION['flash_message'] = "Anda masih meminjam buku ini. Kembalikan dulu sebelum pinjam lagi.";
+        $_SESSION['flash_type'] = "error";
+
+    } elseif ($result === "OK") {
+        // sukses
+        $_SESSION['flash_message'] = "Berhasil meminjam buku!";
+        $_SESSION['flash_type'] = "success";
 
     } else {
-        // sukses
-        $message      = "Berhasil meminjam buku!";
-        $message_type = "success";
+        // fallback bila model mengembalikan hal tak terduga
+        $_SESSION['flash_message'] = "Terjadi kesalahan saat memproses peminjaman.";
+        $_SESSION['flash_type'] = "error";
     }
 
-    // tetap di buku yang baru dipilih
-    $selectedBookId = $buku_id;
+    // redirect ke halaman yang sama supaya POST-Redirect-GET dan pesan tampil konsisten
+    // tetap pertahankan buku yang baru dipilih lewat query param
+    header('Location: borrow.php?pinjam_buku=' . $buku_id);
+    exit;
 }
 
 // PROSES PENGEMBALIAN BUKU
@@ -91,23 +105,39 @@ if (isset($_GET['kembali']) && $role === 'peminjam') {
         // simpan buku_id agar dropdown update
         $buku_id = $peminjamanRow['buku_id'];
 
-        // jalankan fungsi returnBook
-        $berhasil = $pm->returnBook($id, date('Y-m-d'));
+        // cek status dulu supaya pesan lebih jelas
+        if (isset($peminjamanRow['status']) && $peminjamanRow['status'] === 'dikembalikan') {
+            // sudah dikembalikan sebelumnya maka set flash info
+            $_SESSION['flash_message'] = "Buku ini sudah dikembalikan sebelumnya.";
+            $_SESSION['flash_type'] = "info";
 
-        if ($berhasil) {
-            $message      = "Buku berhasil dikembalikan.";
-            $message_type = "success";
+            // redirect supaya pesan tampil dan mencegah pemanggilan ulang
+            header('Location: borrow.php?pinjam_buku=' . $buku_id);
+            exit;
         } else {
-            $message      = "Peminjaman sudah pernah dikembalikan atau tidak ditemukan.";
-            $message_type = "error";
+            // jalankan fungsi returnBook
+            $berhasil = $pm->returnBook($id, date('Y-m-d'));
+
+            if ($berhasil) {
+                $_SESSION['flash_message'] = "Buku berhasil dikembalikan.";
+                $_SESSION['flash_type'] = "success";
+            } else {
+                // fallback jika terjadi error pada saat update
+                $_SESSION['flash_message'] = "Terjadi kesalahan saat proses pengembalian.";
+                $_SESSION['flash_type'] = "error";
+            }
+
+            // redirect supaya GET menjadi tampilan bersih dan tidak memproses ulang
+            header('Location: borrow.php?pinjam_buku=' . $buku_id);
+            exit;
         }
 
-        $selectedBookId = $buku_id;
-
     } else {
-        //kalo tidak punya hak
-        $message      = "Anda tidak berhak mengembalikan peminjaman ini.";
-        $message_type = "error";
+        //kalo tidak punya hak maka gunakan flash
+        $_SESSION['flash_message'] = "Anda tidak berhak mengembalikan peminjaman ini.";
+        $_SESSION['flash_type'] = "error";
+        header('Location: borrow.php');
+        exit;
     }
 }
 
