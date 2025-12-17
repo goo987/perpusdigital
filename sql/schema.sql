@@ -62,6 +62,7 @@ CREATE TABLE peminjaman (
   user_id INT NOT NULL,
   buku_id INT NOT NULL,
   tanggal_pinjam DATE,
+  tanggal_tenggat DATE NULL,
   tanggal_kembali DATE NULL,
   status ENUM('dipinjam','dikembalikan') DEFAULT 'dipinjam',
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

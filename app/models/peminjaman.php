@@ -74,8 +74,10 @@ class PeminjamanModel {
         return $stmt->fetch();
     }
 
-    //  Tambah peminjaman
-    public function borrow($user_id, $buku_id, $tanggal_pinjam){
+    // ===========================================
+    //  Tambah peminjaman (dengan tanggal tenggat)
+    // ===========================================
+    public function borrow($user_id, $buku_id, $tanggal_pinjam, $tanggal_tenggat = null){
 
         // Cek apakah user sudah meminjam buku ini
         $stmt = $this->db->prepare("
@@ -98,12 +100,17 @@ class PeminjamanModel {
             return "STOK_HABIS";
         }
 
+        // Jika tanggal_tenggat tidak diisi, buat default +7 hari dari tanggal_pinjam
+        if (empty($tanggal_tenggat)) {
+            $tanggal_tenggat = date('Y-m-d', strtotime($tanggal_pinjam . ' +7 days'));
+        }
+
         // Insert peminjaman baru
         $stmt = $this->db->prepare("
-            INSERT INTO peminjaman (user_id, buku_id, tanggal_pinjam, status)
-            VALUES (?, ?, ?, 'dipinjam')
+            INSERT INTO peminjaman (user_id, buku_id, tanggal_pinjam, tanggal_tenggat, status)
+            VALUES (?, ?, ?, ?, 'dipinjam')
         ");
-        $stmt->execute([$user_id, $buku_id, $tanggal_pinjam]);
+        $stmt->execute([$user_id, $buku_id, $tanggal_pinjam, $tanggal_tenggat]);
 
         // Kurangi stok buku
         $stmt = $this->db->prepare("UPDATE buku SET stok = stok - 1 WHERE id = ?");

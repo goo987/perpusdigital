@@ -1,12 +1,12 @@
 <?php
-require_once __DIR__.'/../templates/header.php';
+require_once __DIR__ . '/../templates/header.php';
 
 // CEK LOGIN
 $auth = new Auth($db->pdo());
-if (!$auth->check()) { 
-    // kalau belum login maka lempar ke login
-    header('Location: login.php'); 
-    exit; 
+if (!$auth->check()) {
+  // kalau belum login maka lempar ke login
+  header('Location: login.php');
+  exit;
 }
 
 // INISIASI MODEL
@@ -25,201 +25,207 @@ $user_id_session = $_SESSION['user']['id'];
 $message      = null;
 $message_type = null;
 if (isset($_SESSION['flash_message'])) {
-    $message = $_SESSION['flash_message'];
-    $message_type = $_SESSION['flash_type'] ?? null;
-    unset($_SESSION['flash_message'], $_SESSION['flash_type']);
+  $message = $_SESSION['flash_message'];
+  $message_type = $_SESSION['flash_type'] ?? null;
+  unset($_SESSION['flash_message'], $_SESSION['flash_type']);
 }
 
 // BUKA HALAMAN INI HANYA UNTUK PEMINJAM
 if ($role !== 'peminjam') {
-    // kalau bukan peminjam
-    $message      = "Halaman ini hanya untuk akun peminjam.";
-    $message_type = "error";
+  // kalau bukan peminjam
+  $message      = "Halaman ini hanya untuk akun peminjam.";
+  $message_type = "error";
 }
 
 // AUTO SELECT jika datang dari index.php (pinjam_buku=ID)
 $selectedBookId = null;
 if (isset($_GET['pinjam_buku'])) {
 
-    // buku yang dipilih user dari halaman lain
-    $selectedBookId = intval($_GET['pinjam_buku']);
+  // buku yang dipilih user dari halaman lain
+  $selectedBookId = intval($_GET['pinjam_buku']);
 
-    // cek apakah bukunya ada
-    $bookCheck = $bm->find($selectedBookId);
+  // cek apakah bukunya ada
+  $bookCheck = $bm->find($selectedBookId);
 
-    if (!$bookCheck) {
-        // kalau buku tidak ditemukan
-        $selectedBookId = null;
-        $message        = "Buku tidak ditemukan.";
-        $message_type   = "error";
-    }
+  if (!$bookCheck) {
+    // kalau buku tidak ditemukan
+    $selectedBookId = null;
+    $message        = "Buku tidak ditemukan.";
+    $message_type   = "error";
+  }
 }
 
 // PROSES PINJAM BUKU
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['pinjam']) && $role === 'peminjam') {
 
-    $user_id        = $user_id_session;
-    $buku_id        = intval($_POST['buku_id']);
-    $tanggal_pinjam = $_POST['tanggal_pinjam'] ?? date('Y-m-d');
+  $user_id         = $user_id_session;
+  $buku_id         = intval($_POST['buku_id']);
+  $tanggal_pinjam  = $_POST['tanggal_pinjam'] ?? date('Y-m-d');
+  $tanggal_tenggat = $_POST['tanggal_tenggat'] ?? date('Y-m-d', strtotime('+7 days')); // 🟣 tambahan baru
 
-    // jalankan fungsi pinjam di model
-    $result = $pm->borrow($user_id, $buku_id, $tanggal_pinjam);
+  // jalankan fungsi pinjam di model (tambahkan param ke-4)
+  $result = $pm->borrow($user_id, $buku_id, $tanggal_pinjam, $tanggal_tenggat);
 
-    // cek hasilnya
-    if ($result === "STOK_HABIS") {
-        $_SESSION['flash_message'] = "Stok buku sudah habis. Tidak bisa dipinjam.";
-        $_SESSION['flash_type'] = "error";
 
-    } elseif ($result === "SUDAH_DIPINJAM") {
-        $_SESSION['flash_message'] = "Anda masih meminjam buku ini. Kembalikan dulu sebelum pinjam lagi.";
-        $_SESSION['flash_type'] = "error";
+  // cek hasilnya
+  if ($result === "STOK_HABIS") {
+    $_SESSION['flash_message'] = "Stok buku sudah habis. Tidak bisa dipinjam.";
+    $_SESSION['flash_type'] = "error";
+  } elseif ($result === "SUDAH_DIPINJAM") {
+    $_SESSION['flash_message'] = "Anda masih meminjam buku ini. Kembalikan dulu sebelum pinjam lagi.";
+    $_SESSION['flash_type'] = "error";
+  } elseif ($result === "OK") {
+    // sukses
+    $_SESSION['flash_message'] = "Berhasil meminjam buku!";
+    $_SESSION['flash_type'] = "success";
+  } else {
+    // fallback bila model mengembalikan hal tak terduga
+    $_SESSION['flash_message'] = "Terjadi kesalahan saat memproses peminjaman.";
+    $_SESSION['flash_type'] = "error";
+  }
 
-    } elseif ($result === "OK") {
-        // sukses
-        $_SESSION['flash_message'] = "Berhasil meminjam buku!";
-        $_SESSION['flash_type'] = "success";
-
-    } else {
-        // fallback bila model mengembalikan hal tak terduga
-        $_SESSION['flash_message'] = "Terjadi kesalahan saat memproses peminjaman.";
-        $_SESSION['flash_type'] = "error";
-    }
-
-    // redirect ke halaman yang sama supaya POST-Redirect-GET dan pesan tampil konsisten
-    // tetap pertahankan buku yang baru dipilih lewat query param
-    header('Location: borrow.php?pinjam_buku=' . $buku_id);
-    exit;
+  // redirect ke halaman yang sama supaya POST-Redirect-GET dan pesan tampil konsisten
+  // tetap pertahankan buku yang baru dipilih lewat query param
+  header('Location: borrow.php?pinjam_buku=' . $buku_id);
+  exit;
 }
 
 // PROSES PENGEMBALIAN BUKU
 if (isset($_GET['kembali']) && $role === 'peminjam') {
 
-    $id = intval($_GET['kembali']);     // id peminjaman
+  $id = intval($_GET['kembali']);     // id peminjaman
 
-    // ambil data peminjaman
-    $peminjamanRow = $pm->find($id);
+  // ambil data peminjaman
+  $peminjamanRow = $pm->find($id);
 
-    // pastiin itu milik user yg login
-    if ($peminjamanRow && $peminjamanRow['user_id'] == $user_id_session) {
+  // pastiin itu milik user yg login
+  if ($peminjamanRow && $peminjamanRow['user_id'] == $user_id_session) {
 
-        // simpan buku_id agar dropdown update
-        $buku_id = $peminjamanRow['buku_id'];
+    // simpan buku_id agar dropdown update
+    $buku_id = $peminjamanRow['buku_id'];
 
-        // cek status dulu supaya pesan lebih jelas
-        if (isset($peminjamanRow['status']) && $peminjamanRow['status'] === 'dikembalikan') {
-            // sudah dikembalikan sebelumnya maka set flash info
-            $_SESSION['flash_message'] = "Buku ini sudah dikembalikan sebelumnya.";
-            $_SESSION['flash_type'] = "info";
+    // cek status dulu supaya pesan lebih jelas
+    if (isset($peminjamanRow['status']) && $peminjamanRow['status'] === 'dikembalikan') {
+      // sudah dikembalikan sebelumnya maka set flash info
+      $_SESSION['flash_message'] = "Buku ini sudah dikembalikan sebelumnya.";
+      $_SESSION['flash_type'] = "info";
 
-            // redirect supaya pesan tampil dan mencegah pemanggilan ulang
-            header('Location: borrow.php?pinjam_buku=' . $buku_id);
-            exit;
-        } else {
-            // jalankan fungsi returnBook
-            $berhasil = $pm->returnBook($id, date('Y-m-d'));
-
-            if ($berhasil) {
-                $_SESSION['flash_message'] = "Buku berhasil dikembalikan.";
-                $_SESSION['flash_type'] = "success";
-            } else {
-                // fallback jika terjadi error pada saat update
-                $_SESSION['flash_message'] = "Terjadi kesalahan saat proses pengembalian.";
-                $_SESSION['flash_type'] = "error";
-            }
-
-            // redirect supaya GET menjadi tampilan bersih dan tidak memproses ulang
-            header('Location: borrow.php?pinjam_buku=' . $buku_id);
-            exit;
-        }
-
+      // redirect supaya pesan tampil dan mencegah pemanggilan ulang
+      header('Location: borrow.php?pinjam_buku=' . $buku_id);
+      exit;
     } else {
-        //kalo tidak punya hak maka gunakan flash
-        $_SESSION['flash_message'] = "Anda tidak berhak mengembalikan peminjaman ini.";
+      // jalankan fungsi returnBook
+      $berhasil = $pm->returnBook($id, date('Y-m-d'));
+
+      if ($berhasil) {
+        $_SESSION['flash_message'] = "Buku berhasil dikembalikan.";
+        $_SESSION['flash_type'] = "success";
+      } else {
+        // fallback jika terjadi error pada saat update
+        $_SESSION['flash_message'] = "Terjadi kesalahan saat proses pengembalian.";
         $_SESSION['flash_type'] = "error";
-        header('Location: borrow.php');
-        exit;
+      }
+
+      // redirect supaya GET menjadi tampilan bersih dan tidak memproses ulang
+      header('Location: borrow.php?pinjam_buku=' . $buku_id);
+      exit;
     }
+  } else {
+    //kalo tidak punya hak maka gunakan flash
+    $_SESSION['flash_message'] = "Anda tidak berhak mengembalikan peminjaman ini.";
+    $_SESSION['flash_type'] = "error";
+    header('Location: borrow.php');
+    exit;
+  }
 }
+
+// 🟣 AUTO RETURN (tambahan baru)
+// Jika tanggal hari ini sudah melewati tanggal_tenggat
+// dan status masih 'dipinjam', maka ubah otomatis jadi 'dikembalikan'
+$today = date('Y-m-d');
+
+$db->pdo()->exec("
+  UPDATE peminjaman 
+  SET status = 'dikembalikan', tanggal_kembali = '$today'
+  WHERE status = 'dipinjam' AND tanggal_tenggat < '$today'
+");
+
 
 // TAMBAH ULASAN
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['review']) && $role === 'peminjam') {
 
-    $peminjaman_id = intval($_POST['peminjaman_id']);
-    $buku_id       = intval($_POST['buku_id']);
-    $rating        = intval($_POST['rating']);
-    $komentar      = trim($_POST['komentar']);
+  $peminjaman_id = intval($_POST['peminjaman_id']);
+  $buku_id       = intval($_POST['buku_id']);
+  $rating        = intval($_POST['rating']);
+  $komentar      = trim($_POST['komentar']);
 
-    // cek peminjaman
-    $peminjamanRow = $pm->find($peminjaman_id);
+  // cek peminjaman
+  $peminjamanRow = $pm->find($peminjaman_id);
 
-    // validasi
-    if (!$peminjamanRow || $peminjamanRow['user_id'] != $user_id_session) {
-        $message      = "Peminjaman tidak ditemukan atau bukan milik Anda.";
-        $message_type = "error";
+  // validasi
+  if (!$peminjamanRow || $peminjamanRow['user_id'] != $user_id_session) {
+    $message      = "Peminjaman tidak ditemukan atau bukan milik Anda.";
+    $message_type = "error";
+  } elseif ($peminjamanRow['status'] !== 'dikembalikan') {
+    $message      = "Anda hanya bisa memberi ulasan setelah buku dikembalikan.";
+    $message_type = "error";
+  } elseif ($rating < 1 || $rating > 5) {
+    $message      = "Rating harus antara 1 sampai 5.";
+    $message_type = "error";
+  } else {
+    // tambah ulasan
+    $rm->addReview($peminjaman_id, $user_id_session, $buku_id, $rating, $komentar);
 
-    } elseif ($peminjamanRow['status'] !== 'dikembalikan') {
-        $message      = "Anda hanya bisa memberi ulasan setelah buku dikembalikan.";
-        $message_type = "error";
+    $message      = "Ulasan berhasil ditambahkan.";
+    $message_type = "success";
+  }
 
-    } elseif ($rating < 1 || $rating > 5) {
-        $message      = "Rating harus antara 1 sampai 5.";
-        $message_type = "error";
-
-    } else {
-        // tambah ulasan
-        $rm->addReview($peminjaman_id, $user_id_session, $buku_id, $rating, $komentar);
-
-        $message      = "Ulasan berhasil ditambahkan.";
-        $message_type = "success";
-    }
-
-    $selectedBookId = $buku_id;
+  $selectedBookId = $buku_id;
 }
 
 // EDIT ULASAN
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['edit_review']) && $role === 'peminjam') {
 
-    $review_id = intval($_POST['review_id']);
-    $rating    = intval($_POST['rating']);
-    $komentar  = trim($_POST['komentar']);
+  $review_id = intval($_POST['review_id']);
+  $rating    = intval($_POST['rating']);
+  $komentar  = trim($_POST['komentar']);
 
-    $reviewRow = $rm->findByReviewId($review_id);
+  $reviewRow = $rm->findByReviewId($review_id);
 
-    if (!$reviewRow || $reviewRow['user_id'] != $user_id_session) {
+  if (!$reviewRow || $reviewRow['user_id'] != $user_id_session) {
 
-        $message      = "Ulasan tidak ditemukan atau bukan milik Anda.";
-        $message_type = "error";
+    $message      = "Ulasan tidak ditemukan atau bukan milik Anda.";
+    $message_type = "error";
+  } else {
 
-    } else {
+    // update review
+    $rm->updateReview($review_id, $rating, $komentar, $user_id_session);
 
-        // update review
-        $rm->updateReview($review_id, $rating, $komentar, $user_id_session);
+    $message      = "Ulasan berhasil diperbarui.";
+    $message_type = "success";
 
-        $message      = "Ulasan berhasil diperbarui.";
-        $message_type = "success";
-
-        // update dropdown
-        $selectedBookId = $reviewRow['buku_id'];
-    }
+    // update dropdown
+    $selectedBookId = $reviewRow['buku_id'];
+  }
 }
 
 // HAPUS ULASAN
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_review']) && $role === 'peminjam') {
 
-    $review_id = intval($_POST['review_id']);
-    $reviewRow = $rm->findByReviewId($review_id);
+  $review_id = intval($_POST['review_id']);
+  $reviewRow = $rm->findByReviewId($review_id);
 
-    if (!$reviewRow || $reviewRow['user_id'] != $user_id_session) {
-        $message      = "Ulasan tidak ditemukan atau bukan milik Anda.";
-        $message_type = "error";
-    } else {
-        // hapus
-        $rm->deleteReview($review_id, $user_id_session);
-        $message      = "Ulasan berhasil dihapus.";
-        $message_type = "success";
+  if (!$reviewRow || $reviewRow['user_id'] != $user_id_session) {
+    $message      = "Ulasan tidak ditemukan atau bukan milik Anda.";
+    $message_type = "error";
+  } else {
+    // hapus
+    $rm->deleteReview($review_id, $user_id_session);
+    $message      = "Ulasan berhasil dihapus.";
+    $message_type = "success";
 
-        $selectedBookId = $reviewRow['buku_id'];
-    }
+    $selectedBookId = $reviewRow['buku_id'];
+  }
 }
 
 // LOAD DATA BUKU & PEMINJAMAN USER
@@ -240,33 +246,50 @@ $peminjaman = $stmt->fetchAll();
 
 <!--  CSS DARK MODE -->
 <style>
-.shinigami-bg { background:#0d0d0f; }
-.shinigami-card {
-    background:#111114;
-    border:1px solid #1f1f22;
-    border-radius:8px;
-    transition:0.25s;
-}
-.shinigami-card:hover {
-    transform:translateY(-3px);
-    box-shadow:0 0 12px rgba(123, 97, 255, 0.45);
-}
-.glow { text-shadow:0 0 6px rgba(150,100,255,0.8); }
-td,th { color:#e0e0e0!important; }
-.dark-input {
-    background:#16161a;
-    border:1px solid #2c2c31;
-    color:white;
-}
-.dark-input:focus {
-    border-color:#7c53ff;
-    box-shadow:0 0 4px #7c53ff;
-}
-.dark-btn {
-    background:#7c53ff;
-    color:white;
-}
-.dark-btn:hover { background:#6a3dff; }
+  .shinigami-bg {
+    background: #0d0d0f;
+  }
+
+  .shinigami-card {
+    background: #111114;
+    border: 1px solid #1f1f22;
+    border-radius: 8px;
+    transition: 0.25s;
+  }
+
+  .shinigami-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 0 12px rgba(123, 97, 255, 0.45);
+  }
+
+  .glow {
+    text-shadow: 0 0 6px rgba(150, 100, 255, 0.8);
+  }
+
+  td,
+  th {
+    color: #e0e0e0 !important;
+  }
+
+  .dark-input {
+    background: #16161a;
+    border: 1px solid #2c2c31;
+    color: white;
+  }
+
+  .dark-input:focus {
+    border-color: #7c53ff;
+    box-shadow: 0 0 4px #7c53ff;
+  }
+
+  .dark-btn {
+    background: #7c53ff;
+    color: white;
+  }
+
+  .dark-btn:hover {
+    background: #6a3dff;
+  }
 </style>
 
 <!--  UI HALAMAN PEMINJAMAN -->
@@ -276,14 +299,14 @@ td,th { color:#e0e0e0!important; }
 
   <!-- Pesan sukses / error -->
   <?php if ($message): ?>
-      <div class="mb-6 p-4 rounded <?= $message_type=='error' ? 'bg-red-900/50 text-red-300 border border-red-800' : 'bg-green-900/40 text-green-300 border border-green-800' ?>">
-        <?= htmlspecialchars($message) ?>
-      </div>
+    <div class="mb-6 p-4 rounded <?= $message_type == 'error' ? 'bg-red-900/50 text-red-300 border border-red-800' : 'bg-green-900/40 text-green-300 border border-green-800' ?>">
+      <?= htmlspecialchars($message) ?>
+    </div>
   <?php endif; ?>
 
   <!-- Form Pinjam Buku (hanya untuk peminjam) -->
   <?php if ($role === 'peminjam'): ?>
-  <div class="shinigami-card p-4 mb-8">
+    <div class="shinigami-card p-4 mb-8">
 
       <form method="post" class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
 
@@ -296,13 +319,12 @@ td,th { color:#e0e0e0!important; }
           <select id="selectBuku" name="buku_id" class="w-full p-2 rounded dark-input">
 
             <?php foreach ($books as $b): ?>
-              <option 
+              <option
                 value="<?= $b['id'] ?>"
                 data-cover="<?= htmlspecialchars($b['cover'] ?? '') ?>"
                 data-judul="<?= htmlspecialchars($b['judul']) ?>"
                 data-penulis="<?= htmlspecialchars($b['penulis'] ?? '') ?>"
-                <?= ($selectedBookId == $b['id']) ? 'selected' : '' ?>
-              >
+                <?= ($selectedBookId == $b['id']) ? 'selected' : '' ?>>
                 <?= htmlspecialchars($b['judul']) ?> (stok: <?= intval($b['stok']) ?>)
               </option>
             <?php endforeach; ?>
@@ -314,6 +336,12 @@ td,th { color:#e0e0e0!important; }
         <div>
           <label class="block text-sm mb-1 text-gray-300">Tanggal Pinjam</label>
           <input type="date" name="tanggal_pinjam" value="<?= date('Y-m-d') ?>" class="w-full p-2 rounded dark-input">
+        </div>
+
+        <!-- Input tanggal tenggat (tambahan baru) -->
+        <div>
+          <label class="block text-sm mb-1 text-gray-300">Tanggal Tenggat Pengembalian</label>
+          <input type="date" name="tanggal_tenggat" value="<?= date('Y-m-d', strtotime('+7 days')) ?>" class="w-full p-2 rounded dark-input">
         </div>
 
         <!-- Preview buku + tombol pinjam -->
@@ -338,7 +366,7 @@ td,th { color:#e0e0e0!important; }
 
       </form>
 
-  </div>
+    </div>
   <?php endif; ?>
 
 
@@ -353,6 +381,10 @@ td,th { color:#e0e0e0!important; }
           <th class="p-3">Cover</th>
           <th class="p-3">Buku</th>
           <th class="p-3">Tanggal Pinjam</th>
+
+          <!-- 🔹 Tambahan baru -->
+          <th class="p-3">Tanggal Tenggat</th>
+
           <th class="p-3">Status</th>
           <th class="p-3">Aksi</th>
           <th class="p-3">Ulasan</th>
@@ -364,18 +396,18 @@ td,th { color:#e0e0e0!important; }
         <!-- Loop semua peminjaman -->
         <?php foreach ($peminjaman as $p):
 
-              // ambil data buku
-              $bookRow = $bm->find($p['buku_id']);
-              $cover   = $bookRow['cover'] ?? null;
+          // ambil data buku
+          $bookRow = $bm->find($p['buku_id']);
+          $cover   = $bookRow['cover'] ?? null;
 
-              // cek ulasan
-              $review  = $rm->findByPeminjaman($p['id']);
+          // cek ulasan
+          $review  = $rm->findByPeminjaman($p['id']);
         ?>
 
-        <tr class="border-t border-gray-700">
+          <tr class="border-t border-gray-700">
 
-          <!-- Cover buku -->
-          <td class="p-2">
+            <!-- Cover buku -->
+            <td class="p-2">
               <?php if ($cover): ?>
                 <img src="uploads/cover/<?= htmlspecialchars($cover) ?>" class="h-16 w-12 object-cover rounded shadow">
               <?php else: ?>
@@ -383,33 +415,36 @@ td,th { color:#e0e0e0!important; }
                   No
                 </div>
               <?php endif; ?>
-          </td>
+            </td>
 
-          <!-- Nama buku -->
-          <td class="p-2 font-medium text-white"><?= htmlspecialchars($p['judul']) ?></td>
+            <!-- Nama buku -->
+            <td class="p-2 font-medium text-white"><?= htmlspecialchars($p['judul']) ?></td>
 
-          <!-- Tanggal pinjam -->
-          <td class="p-2 text-gray-300"><?= htmlspecialchars($p['tanggal_pinjam']) ?></td>
+            <!-- Tanggal pinjam -->
+            <td class="p-2 text-gray-300"><?= htmlspecialchars($p['tanggal_pinjam']) ?></td>
 
-          <!-- Status -->
-          <td class="p-2 text-gray-300"><?= htmlspecialchars($p['status']) ?></td>
+            <!-- 🔹 Tambahan baru -->
+            <td class="p-2 text-gray-300"><?= htmlspecialchars($p['tanggal_tenggat'] ?? '-') ?></td>
 
-          <!-- Tombol kembalikan -->
-          <td class="p-2">
+            <!-- Status -->
+            <td class="p-2 text-gray-300"><?= htmlspecialchars($p['status']) ?></td>
+
+            <!-- Tombol kembalikan -->
+            <td class="p-2">
               <?php if ($p['status'] == 'dipinjam'): ?>
                 <a href="borrow.php?kembali=<?= $p['id'] ?>" class="text-purple-400 hover:underline">Kembalikan</a>
               <?php else: ?>
                 <span class="text-green-400 font-semibold">✔ Selesai</span>
               <?php endif; ?>
-          </td>
+            </td>
 
-          <!-- Kolom Ulasan -->
-          <td class="p-2 align-top">
+            <!-- Kolom Ulasan -->
+            <td class="p-2 align-top">
 
               <?php if ($p['status'] == 'dikembalikan' && !$review): ?>
 
                 <!-- Tombol buka form ulasan -->
-                <button onclick="document.getElementById('add<?= $p['id'] ?>').classList.toggle('hidden')" 
+                <button onclick="document.getElementById('add<?= $p['id'] ?>').classList.toggle('hidden')"
                   class="text-purple-300 underline text-sm hover:text-purple-200">
                   Beri Ulasan
                 </button>
@@ -445,9 +480,9 @@ td,th { color:#e0e0e0!important; }
                 <div class="text-xs text-gray-300 mb-2"><?= nl2br(htmlspecialchars($review['komentar'])) ?></div>
 
                 <div class="flex items-center gap-2">
-                  
+
                   <!-- tombol edit -->
-                  <button onclick="document.getElementById('edit<?= $review['id'] ?>').classList.toggle('hidden')" 
+                  <button onclick="document.getElementById('edit<?= $review['id'] ?>').classList.toggle('hidden')"
                     class="text-purple-300 underline text-sm">
                     Edit
                   </button>
@@ -487,9 +522,9 @@ td,th { color:#e0e0e0!important; }
                 <span class="text-gray-500">-</span>
               <?php endif; ?>
 
-          </td>
+            </td>
 
-        </tr>
+          </tr>
         <?php endforeach; ?>
 
       </tbody>
@@ -501,49 +536,49 @@ td,th { color:#e0e0e0!important; }
 
 <!-- SCRIPT UNTUK PREVIEW BUKU -->
 <script>
-(function(){
-  const select        = document.getElementById('selectBuku');
-  const previewCover  = document.getElementById('previewCover');
-  const previewNo     = document.getElementById('previewNo');
-  const previewJudul  = document.getElementById('previewJudul');
-  const previewPenulis= document.getElementById('previewPenulis');
+  (function() {
+    const select = document.getElementById('selectBuku');
+    const previewCover = document.getElementById('previewCover');
+    const previewNo = document.getElementById('previewNo');
+    const previewJudul = document.getElementById('previewJudul');
+    const previewPenulis = document.getElementById('previewPenulis');
 
-  // Fungsi update preview
-  function updatePreview(opt){
-    if (!opt) return;
+    // Fungsi update preview
+    function updatePreview(opt) {
+      if (!opt) return;
 
-    const cover   = opt.dataset.cover || '';
-    const judul   = opt.dataset.judul || '';
-    const penulis = opt.dataset.penulis || '';
+      const cover = opt.dataset.cover || '';
+      const judul = opt.dataset.judul || '';
+      const penulis = opt.dataset.penulis || '';
 
-    previewJudul.textContent   = judul;
-    previewPenulis.textContent = penulis;
+      previewJudul.textContent = judul;
+      previewPenulis.textContent = penulis;
 
-    if (cover) {
-      previewCover.src = 'uploads/cover/' + cover;
-      previewCover.classList.remove('hidden');
-      previewNo.classList.add('hidden');
-    } else {
-      previewCover.src = '';
-      previewCover.classList.add('hidden');
-      previewNo.classList.remove('hidden');
+      if (cover) {
+        previewCover.src = 'uploads/cover/' + cover;
+        previewCover.classList.remove('hidden');
+        previewNo.classList.add('hidden');
+      } else {
+        previewCover.src = '';
+        previewCover.classList.add('hidden');
+        previewNo.classList.remove('hidden');
+      }
     }
-  }
 
-  // ketika halaman load
-  document.addEventListener("DOMContentLoaded", function() {
-    if (select && select.options.length > 0) {
-      updatePreview(select.options[select.selectedIndex]);
-    }
-  });
-
-  // ketika dropdown berubah
-  if (select) {
-    select.addEventListener('change', function(){
-      updatePreview(this.options[this.selectedIndex]);
+    // ketika halaman load
+    document.addEventListener("DOMContentLoaded", function() {
+      if (select && select.options.length > 0) {
+        updatePreview(select.options[select.selectedIndex]);
+      }
     });
-  }
-})();
+
+    // ketika dropdown berubah
+    if (select) {
+      select.addEventListener('change', function() {
+        updatePreview(this.options[this.selectedIndex]);
+      });
+    }
+  })();
 </script>
 
-<?php require_once __DIR__.'/../templates/footer.php'; ?>
+<?php require_once __DIR__ . '/../templates/footer.php'; ?>
